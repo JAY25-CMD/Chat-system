@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#f3f4f6" />
+        <title>{{.GroupName}} | Group members</title>
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        />
+        <script>
+            document.documentElement.classList.toggle(
+                "dark",
+                localStorage.getItem("theme") === "dark",
+            );
+        </script>
+        <style>
+            :root {
+                color-scheme: light;
+                --page-bg: #f3f4f6;
+                --card-bg: #ffffff;
+                --field-bg: #f3f4f6;
+                --text: #111827;
+                --muted: #6b7280;
+                --border: #e5e7eb;
+                --subtle-border: #f3f4f6;
+                --accent: #4f46e5;
+                --accent-hover: #4338ca;
+                --danger-bg: #fef2f2;
+                --danger-text: #b91c1c;
+                --error-bg: #fef2f2;
+                --error-text: #b91c1c;
+                --shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+            }
+
+            :root.dark {
+                color-scheme: dark;
+                --page-bg: #030712;
+                --card-bg: #111827;
+                --field-bg: #1f2937;
+                --text: #f3f4f6;
+                --muted: #9ca3af;
+                --border: #374151;
+                --subtle-border: #1f2937;
+                --accent: #6366f1;
+                --accent-hover: #4f46e5;
+                --danger-bg: rgba(127, 29, 29, 0.3);
+                --danger-text: #fecaca;
+                --error-bg: rgba(127, 29, 29, 0.3);
+                --error-text: #fecaca;
+                --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                min-height: 100vh;
+                min-height: 100dvh;
+                margin: 0;
+                padding: 5rem 1.25rem 2rem;
+                display: grid;
+                place-items: center;
+                position: relative;
+                overflow-x: hidden;
+                background:
+                    radial-gradient(
+                        ellipse at 12% 12%,
+                        rgba(99, 102, 241, 0.14),
+                        transparent 36%
+                    ),
+                    radial-gradient(
+                        ellipse at 90% 88%,
+                        rgba(139, 92, 246, 0.11),
+                        transparent 35%
+                    ),
+                    var(--page-bg);
+                color: var(--text);
+                font-family:
+                    Inter,
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+                transition:
+                    background-color 180ms ease,
+                    color 180ms ease;
+            }
+
+            .theme-toggle {
+                position: absolute;
+                top: 1.25rem;
+                right: 1.25rem;
+                width: 2.75rem;
+                height: 2.75rem;
+                display: grid;
+                place-items: center;
+                color: var(--muted);
+                background: var(--card-bg);
+                border: 1px solid var(--border);
+                border-radius: 0.85rem;
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+                font-size: 1rem;
+                cursor: pointer;
+                transition:
+                    color 180ms ease,
+                    background-color 180ms ease,
+                    transform 180ms ease;
+            }
+
+            .theme-toggle:hover {
+                color: var(--accent);
+                transform: translateY(-1px);
+            }
+
+            .group-card {
+                width: min(100%, 32rem);
+                overflow: hidden;
+                background: var(--card-bg);
+                border: 1px solid var(--border);
+                border-radius: 1.25rem;
+                box-shadow: var(--shadow);
+                transition:
+                    background-color 180ms ease,
+                    border-color 180ms ease;
+            }
+
+            .card-header {
+                display: flex;
+                align-items: center;
+                gap: 0.85rem;
+                padding: 1.25rem 1.5rem;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .back-link {
+                width: 2.5rem;
+                height: 2.5rem;
+                flex-shrink: 0;
+                display: grid;
+                place-items: center;
+                color: var(--muted);
+                background: var(--field-bg);
+                border-radius: 0.75rem;
+                text-decoration: none;
+                transition:
+                    color 160ms ease,
+                    background-color 160ms ease;
+            }
+
+            .back-link:hover {
+                color: var(--accent);
+                background: var(--subtle-border);
+            }
+
+            .group-mark {
+                width: 2.75rem;
+                height: 2.75rem;
+                flex-shrink: 0;
+                display: grid;
+                place-items: center;
+                color: #ffffff;
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                border-radius: 0.9rem;
+                font-size: 1.05rem;
+            }
+
+            .group-heading {
+                min-width: 0;
+                flex: 1;
+            }
+
+            .group-heading h1 {
+                margin: 0;
+                overflow: hidden;
+                font-size: 1rem;
+                font-weight: 750;
+                letter-spacing: -0.025em;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .group-heading p {
+                margin: 0.25rem 0 0;
+                color: var(--muted);
+                font-size: 0.78rem;
+            }
+
+            .group-actions {
+                display: grid;
+                gap: 0.75rem;
+                padding: 1.25rem 1.5rem;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .add-form {
+                display: flex;
+                gap: 0.55rem;
+            }
+
+            .add-input {
+                min-width: 0;
+                height: 2.8rem;
+                flex: 1;
+                padding: 0 0.9rem;
+                color: var(--text);
+                background: var(--field-bg);
+                border: 1px solid var(--border);
+                border-radius: 0.75rem;
+                outline: none;
+                font: inherit;
+                font-size: 0.88rem;
+                transition:
+                    border-color 160ms ease,
+                    box-shadow 160ms ease,
+                    background-color 180ms ease;
+            }
+
+            .add-input::placeholder {
+                color: var(--muted);
+                opacity: 0.8;
+            }
+
+            .add-input:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+            }
+
+            .add-button {
+                min-width: 5.25rem;
+                padding: 0 1rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.45rem;
+                color: #ffffff;
+                background: var(--accent);
+                border: 0;
+                border-radius: 0.75rem;
+                font: inherit;
+                font-size: 0.85rem;
+                font-weight: 700;
+                cursor: pointer;
+                transition:
+                    background-color 160ms ease,
+                    transform 160ms ease;
+            }
+
+            .add-button:hover {
+                background: var(--accent-hover);
+                transform: translateY(-1px);
+            }
+
+            .leave-button {
+                width: 100%;
+                min-height: 2.65rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+                color: var(--danger-text);
+                background: var(--danger-bg);
+                border: 1px solid transparent;
+                border-radius: 0.75rem;
+                font: inherit;
+                font-size: 0.84rem;
+                font-weight: 650;
+                cursor: pointer;
+                transition:
+                    border-color 160ms ease,
+                    transform 160ms ease;
+            }
+
+            .leave-button:hover {
+                border-color: rgba(239, 68, 68, 0.25);
+                transform: translateY(-1px);
+            }
+
+            .alert {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.65rem;
+                margin: 1rem 1.5rem 0;
+                padding: 0.8rem 0.9rem;
+                color: var(--error-text);
+                background: var(--error-bg);
+                border: 1px solid rgba(239, 68, 68, 0.18);
+                border-radius: 0.75rem;
+                font-size: 0.85rem;
+                line-height: 1.45;
+            }
+
+            .members-section {
+                padding: 1.25rem 1.5rem 0.5rem;
+            }
+
+            .members-title {
+                margin: 0 0 0.75rem;
+                color: var(--muted);
+                font-size: 0.72rem;
+                font-weight: 750;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .member-row {
+                min-height: 4.25rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.65rem 0;
+                border-bottom: 1px solid var(--subtle-border);
+            }
+
+            .member-row:last-child {
+                border-bottom: 0;
+            }
+
+            .avatar-circle {
+                width: 2.65rem;
+                height: 2.65rem;
+                flex-shrink: 0;
+                display: grid;
+                place-items: center;
+                color: #ffffff;
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                border-radius: 50%;
+                font-size: 0.9rem;
+                font-weight: 750;
+                text-transform: uppercase;
+            }
+
+            .member-info {
+                min-width: 0;
+                flex: 1;
+            }
+
+            .member-name {
+                overflow: hidden;
+                font-size: 0.9rem;
+                font-weight: 650;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .creator-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                margin-left: 0.4rem;
+                padding: 0.2rem 0.45rem;
+                color: var(--accent);
+                background: rgba(99, 102, 241, 0.1);
+                border-radius: 999px;
+                font-size: 0.65rem;
+                font-weight: 700;
+                vertical-align: middle;
+            }
+
+            .remove-button {
+                min-height: 2.2rem;
+                padding: 0 0.65rem;
+                color: var(--danger-text);
+                background: transparent;
+                border: 1px solid var(--border);
+                border-radius: 0.65rem;
+                font: inherit;
+                font-size: 0.75rem;
+                font-weight: 650;
+                cursor: pointer;
+                transition:
+                    background-color 160ms ease,
+                    border-color 160ms ease;
+            }
+
+            .remove-button:hover {
+                background: var(--danger-bg);
+                border-color: rgba(239, 68, 68, 0.25);
+            }
+
+            @media (max-width: 480px) {
+                body {
+                    padding: 5rem 1rem 1.5rem;
+                }
+
+                .card-header,
+                .group-actions {
+                    padding-right: 1.1rem;
+                    padding-left: 1.1rem;
+                }
+
+                .members-section {
+                    padding-right: 1.1rem;
+                    padding-left: 1.1rem;
+                }
+
+                .alert {
+                    margin-right: 1.1rem;
+                    margin-left: 1.1rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <button
+            class="theme-toggle"
+            id="themeToggle"
+            type="button"
+            aria-label="Switch to dark mode"
+            title="Toggle light/dark mode"
+        >
+            <i class="fa-solid fa-moon" id="themeIcon" aria-hidden="true"></i>
+        </button>
+        <main class="group-card">
+            <header class="card-header">
+                <a
+                    class="back-link"
+                    href="/dashboard?c={{.ConversationID}}"
+                    title="Back to chat"
+                    aria-label="Back to chat"
+                >
+                    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+                </a>
+                <div class="group-mark" aria-hidden="true">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <div class="group-heading">
+                    <h1>{{.GroupName}}</h1>
+                    <p>{{len .Members}} members</p>
+                </div>
+            </header>
+
+            <section class="group-actions" aria-label="Group actions">
+                <form class="add-form" method="POST" action="/group/add">
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{.CSRFToken}}"
+                    />
+                    <input
+                        type="hidden"
+                        name="conversation_id"
+                        value="{{.ConversationID}}"
+                    />
+                    <input
+                        class="add-input"
+                        type="text"
+                        name="username"
+                        placeholder="Add member by username"
+                        aria-label="Username to add"
+                        required
+                    />
+                    <button class="add-button" type="submit">
+                        <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+                        Add
+                    </button>
+                </form>
+                <form
+                    method="POST"
+                    action="/group/leave"
+                    onsubmit="return confirm('Leave this group?');"
+                >
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{.CSRFToken}}"
+                    />
+                    <input
+                        type="hidden"
+                        name="conversation_id"
+                        value="{{.ConversationID}}"
+                    />
+                    <button class="leave-button" type="submit">
+                        <i
+                            class="fa-solid fa-arrow-right-from-bracket"
+                            aria-hidden="true"
+                        ></i>
+                        Leave group
+                    </button>
+                </form>
+            </section>
+
+            {{if .Error}}
+            <div class="alert" role="alert">
+                <i
+                    class="fa-solid fa-circle-exclamation"
+                    aria-hidden="true"
+                ></i>
+                <span>{{.Error}}</span>
+            </div>
+            {{end}}
+
+            <section class="members-section" aria-label="Group members">
+                <h2 class="members-title">Members</h2>
+                {{range .Members}}
+                <div class="member-row">
+                    <div class="avatar-circle" aria-hidden="true">
+                        {{slice .Username 0 1}}
+                    </div>
+                    <div class="member-info">
+                        <div class="member-name">
+                            {{.Username}}{{if eq .ID $.CreatorID}}
+                            <span class="creator-badge">
+                                <i
+                                    class="fa-solid fa-crown"
+                                    aria-hidden="true"
+                                ></i>
+                                Creator
+                            </span>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{if and (eq $.CreatorID $.CurrentUserID) (ne .ID
+                    $.CreatorID)}}
+                    <form method="POST" action="/group/remove">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{$.CSRFToken}}"
+                        />
+                        <input
+                            type="hidden"
+                            name="conversation_id"
+                            value="{{$.ConversationID}}"
+                        />
+                        <input type="hidden" name="user_id" value="{{.ID}}" />
+                        <button
+                            class="remove-button"
+                            type="submit"
+                            onclick="return confirm('Remove {{.Username}} from the group?');"
+                            aria-label="Remove {{.Username}} from the group"
+                        >
+                            Remove
+                        </button>
+                    </form>
+                    {{end}}
+                </div>
+                {{end}}
+            </section>
+        </main>
+        <script>
+            var themeToggle = document.getElementById("themeToggle");
+            var themeIcon = document.getElementById("themeIcon");
+
+            function applyTheme(isDark) {
+                document.documentElement.classList.toggle("dark", isDark);
+                themeIcon.className = isDark
+                    ? "fa-solid fa-sun"
+                    : "fa-solid fa-moon";
+                themeToggle.setAttribute(
+                    "aria-label",
+                    isDark ? "Switch to light mode" : "Switch to dark mode",
+                );
+            }
+
+            applyTheme(localStorage.getItem("theme") === "dark");
+            themeToggle.addEventListener("click", function () {
+                var isDark =
+                    !document.documentElement.classList.contains("dark");
+                applyTheme(isDark);
+                localStorage.setItem("theme", isDark ? "dark" : "light");
+            });
+        </script>
+    </body>
+</html>

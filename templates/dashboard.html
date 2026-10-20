@@ -1,0 +1,1793 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Chat</title>
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/static/css/output.css?v=20261019-2" />
+
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+            }
+
+            .app {
+                display: flex;
+                height: 100vh;
+                height: 100dvh;
+                width: 100%;
+                overflow: hidden;
+            }
+
+            .back-btn {
+                display: none;
+            }
+            @media (max-width: 768px) {
+                .sidebar {
+                    width: 100% !important;
+                    display: flex;
+                }
+                .chat {
+                    width: 100% !important;
+                    display: none;
+                }
+                .app.chat-open .sidebar {
+                    display: none;
+                }
+                .app.chat-open .chat {
+                    display: flex;
+                }
+                .back-btn {
+                    display: flex;
+                }
+                .who,
+                .header-sub {
+                    max-width: 55vw;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .row {
+                    max-width: 85% !important;
+                }
+                .search-form input {
+                    width: 140px;
+                }
+                .emoji-panel {
+                    width: min(260px, 85vw);
+                }
+            }
+
+            .avatar-circle:nth-of-type(6n + 1),
+            .conv-item:nth-of-type(6n + 1) .avatar-circle {
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            }
+            .conv-item:nth-of-type(6n + 2) .avatar-circle {
+                background: linear-gradient(135deg, #0d9488, #14b8a6);
+            }
+            .conv-item:nth-of-type(6n + 3) .avatar-circle {
+                background: linear-gradient(135deg, #db2777, #ec4899);
+            }
+            .conv-item:nth-of-type(6n + 4) .avatar-circle {
+                background: linear-gradient(135deg, #d97706, #f59e0b);
+            }
+            .conv-item:nth-of-type(6n + 5) .avatar-circle {
+                background: linear-gradient(135deg, #2563eb, #3b82f6);
+            }
+            .conv-item:nth-of-type(6n + 6) .avatar-circle {
+                background: linear-gradient(135deg, #16a34a, #22c55e);
+            }
+
+            .avatar-wrap {
+                position: relative;
+                flex-shrink: 0;
+            }
+            .presence-dot {
+                display: inline-block;
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                background: #cbd5e1;
+            }
+            .presence-dot.online {
+                background: #22c55e;
+            }
+            .avatar-wrap .presence-dot {
+                position: absolute;
+                right: -1px;
+                bottom: -1px;
+                border: 2px solid white;
+            }
+
+            .search-form {
+                display: none;
+                gap: 0.4rem;
+                align-items: center;
+            }
+            .search-form.open {
+                display: flex;
+            }
+
+            .emoji-wrap {
+                position: relative;
+                display: flex;
+            }
+            .emoji-panel {
+                display: none;
+                position: absolute;
+                bottom: 3rem;
+                left: 0;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                padding: 0.6rem;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+                width: 260px;
+                max-height: 260px;
+                overflow-y: auto;
+                z-index: 20;
+            }
+            .dark .emoji-panel {
+                background: #1f2937;
+                border-color: #374151;
+            }
+            .emoji-panel.open {
+                display: block;
+            }
+            .emoji-category {
+                font-size: 0.68rem;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+                color: #9ca3af;
+                margin: 0.5rem 0 0.25rem;
+            }
+            .dark .emoji-category {
+                color: #9ca3af;
+            }
+            .emoji-category:first-child {
+                margin-top: 0;
+            }
+            .emoji-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.15rem;
+            }
+            .emoji {
+                font-size: 1.3rem;
+                cursor: pointer;
+                padding: 0.2rem;
+                border-radius: 6px;
+                line-height: 1;
+            }
+            .emoji:hover {
+                background: #f0f1f4;
+            }
+            .dark .emoji:hover {
+                background: #374151;
+            }
+
+            .status {
+                color: #c7d2fe;
+            }
+            .status.read {
+                color: #22c55e;
+            }
+
+            .lightbox {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                cursor: zoom-out;
+            }
+            .lightbox.open {
+                display: flex;
+            }
+            .lightbox img {
+                max-width: 90vw;
+                max-height: 90vh;
+                border-radius: 8px;
+            }
+
+            .attachment-image {
+                cursor: pointer;
+            }
+            #voiceRecordButton.recording {
+                background: #dc2626;
+                color: white;
+                animation: voice-record-pulse 1.5s ease-in-out infinite;
+            }
+            #voiceRecordingStatus {
+                color: #dc2626;
+            }
+            .dark #voiceRecordingStatus {
+                color: #f87171;
+            }
+            @keyframes voice-record-pulse {
+                50% {
+                    box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.2);
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #voiceRecordButton.recording {
+                    animation: none;
+                }
+            }
+        </style>
+    </head>
+    <body
+        class="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors"
+    >
+        <div
+            class="app{{if .ConversationID}} chat-open{{end}} bg-white dark:bg-gray-900"
+        >
+            <div
+                class="sidebar w-96 flex-shrink-0 flex flex-col min-h-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800"
+            >
+                <div
+                    class="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-800"
+                >
+                    <div
+                        class="avatar-circle w-11 h-11 rounded-full flex items-center justify-center font-bold text-white uppercase flex-shrink-0"
+                    >
+                        {{slice .Username 0 1}}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-sm truncate">
+                            {{.Username}}
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                            Signed in
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        id="darkToggle"
+                        title="Toggle dark mode"
+                        class="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                        <i class="fa-solid fa-moon text-sm" id="darkIcon"></i>
+                    </button>
+                    <form method="POST" action="/logout" id="logoutForm">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{.CSRFToken}}"
+                        />
+                        <button
+                            type="submit"
+                            title="Log out"
+                            class="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
+                        >
+                            <i
+                                class="fa-solid fa-right-from-bracket text-sm"
+                            ></i>
+                        </button>
+                    </form>
+                </div>
+
+                <div
+                    id="notifBanner"
+                    class="flex items-start gap-3 m-3 p-3 rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800"
+                >
+                    <i
+                        class="fa-solid fa-bell text-primary-600 dark:text-primary-400 mt-0.5"
+                    ></i>
+                    <div
+                        class="flex-1 text-xs text-primary-900 dark:text-primary-200 leading-snug"
+                    >
+                        Get alerts for new messages
+                        <div class="mt-1">
+                            <button
+                                type="button"
+                                id="enableNotifications"
+                                class="px-3 py-1 rounded-md bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700"
+                            >
+                                Enable
+                            </button>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        id="notifDismiss"
+                        title="Dismiss"
+                        class="text-primary-400 hover:text-primary-600"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="flex gap-1 px-3 pt-2">
+                    <button
+                        type="button"
+                        class="sidebar-tab flex-1 py-2 text-xs font-semibold rounded-lg bg-primary-600 text-white"
+                        data-tab="list"
+                    >
+                        Chats
+                    </button>
+                    <button
+                        type="button"
+                        class="sidebar-tab flex-1 py-2 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+                        data-tab="dm"
+                    >
+                        + Direct
+                    </button>
+                    <button
+                        type="button"
+                        class="sidebar-tab flex-1 py-2 text-xs font-semibold rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+                        data-tab="group"
+                    >
+                        + Group
+                    </button>
+                </div>
+
+                <div
+                    class="sidebar-panel flex flex-col flex-1 min-h-0"
+                    data-panel="list"
+                >
+                    <div class="px-3 pt-3">
+                        <div class="relative">
+                            <i
+                                class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"
+                            ></i>
+                            <input
+                                type="text"
+                                id="chatFilter"
+                                placeholder="Filter your chats"
+                                class="w-full pl-8 pr-3 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm border-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                    </div>
+                    <div
+                        class="flex items-center justify-between px-4 pt-3 pb-1"
+                    >
+                        <span
+                            class="text-xs font-bold tracking-wide text-gray-400"
+                        >
+                            CONVERSATIONS {{len .Conversations}}
+                        </span>
+                        <button
+                            type="button"
+                            id="toggleConversationSelection"
+                            class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                        >
+                            Select
+                        </button>
+                    </div>
+                    <form
+                        id="deleteConversationsForm"
+                        method="POST"
+                        action="/conversation/delete"
+                        class="flex flex-col flex-1 min-h-0"
+                    >
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{.CSRFToken}}"
+                        />
+                        <div
+                            id="conversationSelectionActions"
+                            class="hidden items-center justify-between px-4 py-2"
+                        >
+                            <button
+                                type="button"
+                                id="selectAllConversations"
+                                class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                            >
+                                Select all
+                            </button>
+                            <span
+                                id="conversationSelectionCount"
+                                class="text-xs text-gray-500 dark:text-gray-400"
+                                aria-live="polite"
+                            >
+                                0 selected
+                            </span>
+                            <button
+                                type="submit"
+                                class="text-xs font-semibold text-red-600 hover:text-red-700"
+                            >
+                                Remove selected
+                            </button>
+                        </div>
+                        <div class="conv-list flex-1 overflow-y-auto">
+                        {{range .Conversations}}
+                        <div class="conv-item flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800">
+                            <input
+                                type="checkbox"
+                                name="conversation_id"
+                                value="{{.ID}}"
+                                aria-label="Select conversation"
+                                class="conversation-select hidden accent-primary-600"
+                            />
+                            <a
+                                class="flex flex-1 min-w-0 items-center gap-3 py-1 {{if eq .ID $.ConversationID}}bg-primary-50 dark:bg-primary-900/20{{end}}"
+                                href="/dashboard?c={{.ID}}"
+                            >
+                            {{if eq .Type "group"}}
+                            <div
+                                class="avatar-circle w-11 h-11 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                            >
+                                <i class="fa-solid fa-users text-sm"></i>
+                            </div>
+                            {{else}}
+                            <div
+                                class="avatar-circle w-11 h-11 rounded-full flex items-center justify-center font-bold text-white uppercase flex-shrink-0"
+                            >
+                                {{slice .ChatWith 0 1}}
+                            </div>
+                            {{end}}
+                            <div class="flex-1 min-w-0">
+                                <div
+                                    class="flex justify-between items-baseline"
+                                >
+                                    <div
+                                        class="font-semibold text-sm truncate conv-name-text"
+                                    >
+                                        {{.ChatWith}}
+                                    </div>
+                                    {{if .LastTime.Valid}}<span
+                                        class="text-xs text-gray-400 flex-shrink-0 ml-2"
+                                        >{{.LastTime.Time.Format "3:04 PM"}}</span
+                                    >{{end}}
+                                </div>
+                                <div
+                                    class="flex justify-between items-center gap-2"
+                                >
+                                    <div
+                                        class="text-xs text-gray-500 dark:text-gray-400 truncate conv-preview-text"
+                                    >
+                                        {{if .LastMessage.Valid}}{{if eq .Type
+                                        "group"}}{{.LastSender.String}}:
+                                        {{end}}{{.LastMessage.String}}{{else}}No
+                                        messages yet{{end}}
+                                    </div>
+                                    {{if gt .Unread 0}}<span
+                                        class="flex-shrink-0 min-w-[1.1rem] h-[1.1rem] rounded-full bg-primary-600 text-white text-[0.65rem] font-bold flex items-center justify-center px-1"
+                                        >{{.Unread}}</span
+                                    >{{end}}
+                                </div>
+                            </div>
+                            </a>
+                        </div>
+                        {{else}}
+                        <div
+                            class="px-4 py-6 text-sm text-gray-400 text-center"
+                        >
+                            No chats yet. Use + Direct or + Group above.
+                        </div>
+                        {{end}}
+                        </div>
+                    </form>
+                </div>
+
+                <div class="sidebar-panel hidden p-4" data-panel="dm">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Start a one-to-one chat by username.
+                    </p>
+                    <form class="flex gap-2" method="POST" action="/chat/start">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{.CSRFToken}}"
+                        />
+                        <input
+                            type="text"
+                            name="username"
+                            placeholder="Username to chat with"
+                            autocomplete="off"
+                            required
+                            class="flex-1 px-3 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm border-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <button
+                            type="submit"
+                            class="px-4 py-2 rounded-full bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700"
+                        >
+                            Start
+                        </button>
+                    </form>
+                </div>
+
+                <div class="sidebar-panel hidden p-4" data-panel="group">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Create a group with a name and members.
+                    </p>
+                    <form
+                        method="POST"
+                        action="/group/create"
+                        class="flex flex-col gap-2"
+                    >
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{.CSRFToken}}"
+                        />
+                        <input
+                            type="text"
+                            name="name"
+                            placeholder="Group name"
+                            autocomplete="off"
+                            required
+                            class="px-3 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm border-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <input
+                            type="text"
+                            name="usernames"
+                            placeholder="Usernames, comma separated"
+                            autocomplete="off"
+                            required
+                            class="px-3 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm border-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <button
+                            type="submit"
+                            class="px-4 py-2 rounded-full bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700"
+                        >
+                            Create group
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div
+                class="chat flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 dark:bg-gray-950"
+                data-chat-with-id="{{.ChatWithID}}"
+                data-conversation-id="{{.ConversationID}}"
+            >
+                <div
+                    class="flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
+                >
+                    <div class="header-left flex items-center gap-3 min-w-0">
+                        {{if .ConversationID}}
+                        <a
+                            href="/dashboard"
+                            class="back-btn w-9 h-9 rounded-lg items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            title="Back to chats"
+                        >
+                            <i class="fa-solid fa-arrow-left text-sm"></i>
+                        </a>
+                        {{end}} {{if .ChatWith}} {{if eq .ConversationType
+                        "group"}}
+                        <div
+                            class="avatar-circle w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                        >
+                            <i class="fa-solid fa-users text-sm"></i>
+                        </div>
+                        {{else}}
+                        <div class="avatar-wrap">
+                            <div
+                                class="avatar-circle w-10 h-10 rounded-full flex items-center justify-center font-bold text-white uppercase flex-shrink-0"
+                            >
+                                {{slice .ChatWith 0 1}}
+                            </div>
+                            <span
+                                id="presenceDot"
+                                class="presence-dot{{if .ChatWithOnline}} online{{end}}"
+                            ></span>
+                        </div>
+                        {{end}}
+                        <div class="min-w-0">
+                            <div class="who font-semibold text-sm">
+                                {{.ChatWith}}
+                            </div>
+                            {{if eq .ConversationType "group"}}
+                            <a
+                                href="/group/members?c={{.ConversationID}}"
+                                class="header-sub text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                                >{{.MemberCount}} members &rsaquo;</a
+                            >
+                            {{else}}
+                            <div
+                                class="header-sub text-xs {{if .ChatWithOnline}}text-green-600 dark:text-green-400{{else}}text-gray-500 dark:text-gray-400{{end}}"
+                                id="headerStatusText"
+                            >
+                                {{if
+                                .ChatWithOnline}}Online{{else}}Offline{{end}}
+                            </div>
+                            {{end}}
+                        </div>
+                        {{else}}
+                        <div class="who font-semibold text-sm">
+                            Select a chat
+                        </div>
+                        {{end}}
+                    </div>
+                    <div class="header-actions flex items-center gap-2">
+                        {{if .ConversationID}}
+                        <button
+                            type="button"
+                            id="searchToggle"
+                            title="Search"
+                            class="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+                            <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                        </button>
+                        <form
+                            method="GET"
+                            action="/dashboard"
+                            class="search-form"
+                            id="searchForm"
+                        >
+                            <input
+                                type="hidden"
+                                name="c"
+                                value="{{.ConversationID}}"
+                            />
+                            <input
+                                type="text"
+                                name="search"
+                                placeholder="Search this chat"
+                                value="{{.SearchTerm}}"
+                                id="searchInput"
+                                class="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-sm border-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </form>
+                        {{end}}
+                    </div>
+                </div>
+
+                <div
+                    class="messages flex-1 overflow-y-auto p-4 flex flex-col gap-3"
+                    id="messages"
+                >
+                    {{if .ConversationID}} {{range .Messages}}
+                    <div
+                        class="row flex flex-col max-w-[70%] {{if .Mine}}mine self-end items-end{{else}}theirs self-start items-start{{end}}"
+                    >
+                        {{if and (not .Mine) (eq $.ConversationType "group")}}
+                        <div
+                            class="sender-name text-xs font-semibold text-primary-600 dark:text-primary-400 mb-0.5 mx-2"
+                        >
+                            {{.Username}}
+                        </div>
+                        {{end}}
+                        <div
+                            class="bubble px-4 py-2 rounded-2xl break-words {{if .Mine}}bg-primary-600 text-white rounded-br-md{{else}}bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-bl-md{{end}}"
+                        >
+                            {{if .AttachmentPath}} {{if hasPrefix
+                            .AttachmentType "image/"}}
+                            <img
+                                src="/attachment?file={{.AttachmentPath}}"
+                                alt="{{.AttachmentName}}"
+                                class="attachment-image max-w-[220px] rounded-lg mb-1 block"
+                            />
+                            {{else if hasPrefix .AttachmentType "audio/"}}
+                            <audio
+                                controls
+                                src="/attachment?file={{.AttachmentPath}}"
+                                class="w-[220px] mb-1 block"
+                            ></audio>
+                            {{else if hasPrefix .AttachmentType "video/"}}
+                            <video
+                                controls
+                                src="/attachment?file={{.AttachmentPath}}"
+                                class="max-w-[260px] rounded-lg mb-1 block"
+                            ></video>
+                            {{else}}
+                            <a
+                                href="/attachment?file={{.AttachmentPath}}"
+                                download="{{.AttachmentName}}"
+                                class="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/10 text-inherit no-underline text-sm max-w-[200px]"
+                            >
+                                <i class="fa-solid fa-paperclip"></i>
+                                {{.AttachmentName}}
+                            </a>
+                            {{end}} {{end}} {{if .Content}}{{.Content}}{{end}}
+                        </div>
+                        <div
+                            class="time flex items-center gap-1 text-xs text-gray-400 mt-1 mx-2"
+                        >
+                            {{.CreatedAt.Format "Jan 2, 3:04 PM"}} {{if .Mine}}
+                            {{if .Read}}<span class="status read"
+                                ><i class="fa-solid fa-check-double"></i
+                            ></span>
+                            {{else if .Delivered}}<span class="status"
+                                ><i class="fa-solid fa-check-double"></i
+                            ></span>
+                            {{else}}<span class="status"
+                                ><i class="fa-solid fa-check"></i></span
+                            >{{end}} {{end}} {{if and .Mine (not .Deleted)}}
+                            <form
+                                method="POST"
+                                action="/message/delete"
+                                class="delete-form inline"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="{{$.CSRFToken}}"
+                                />
+                                <input
+                                    type="hidden"
+                                    name="message_id"
+                                    value="{{.ID}}"
+                                />
+                                <button
+                                    type="submit"
+                                    class="delete-btn text-gray-400 hover:text-red-600 underline"
+                                >
+                                    Delete
+                                </button>
+                            </form>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{else}}
+                    <div class="m-auto text-center text-gray-400 px-6">
+                        No messages yet. Say hello!
+                    </div>
+                    {{end}} {{else}}
+                    <div class="m-auto text-center text-gray-400 px-6">
+                        Choose a chat on the left, or start a new one.
+                    </div>
+                    {{end}}
+                </div>
+
+                {{if .Error}}
+                <div
+                    class="mx-4 mb-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm"
+                >
+                    {{.Error}}
+                </div>
+                {{end}} {{if .ConversationID}}
+                <div
+                    id="attachPreview"
+                    class="hidden items-center gap-3 mx-4 mb-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800"
+                >
+                    <div
+                        id="attachPreviewContent"
+                        class="flex-1 flex items-center gap-3 min-w-0"
+                    ></div>
+                    <div
+                        id="voiceReviewActions"
+                        class="hidden items-center gap-2 flex-shrink-0"
+                    >
+                        <button
+                            type="button"
+                            id="voiceReviewCancel"
+                            class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        id="attachCancel"
+                        title="Remove"
+                        class="text-gray-500 hover:text-red-600"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div
+                    id="typingIndicator"
+                    class="hidden px-4 pb-1 text-xs italic text-gray-500 dark:text-gray-400"
+                >
+                    typing...
+                </div>
+
+                <form
+                    class="flex items-center gap-2 px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800"
+                    method="POST"
+                    action="/postmessage"
+                    enctype="multipart/form-data"
+                >
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{.CSRFToken}}"
+                    />
+                    <input
+                        type="hidden"
+                        name="conversation_id"
+                        value="{{.ConversationID}}"
+                    />
+
+                    <input
+                        type="file"
+                        name="attachment"
+                        id="attachmentInput"
+                        class="hidden"
+                    />
+                    <button
+                        type="button"
+                        title="Attach file"
+                        onclick="
+                            document.getElementById('attachmentInput').click()
+                        "
+                        class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 flex-shrink-0"
+                    >
+                        <i class="fa-solid fa-paperclip text-sm"></i>
+                    </button>
+
+                    <div class="emoji-wrap">
+                        <button
+                            type="button"
+                            id="emojiToggle"
+                            title="Emoji"
+                            class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                            <i class="fa-regular fa-face-smile text-base"></i>
+                        </button>
+                        <div id="emojiPanel" class="emoji-panel">
+                            <div class="emoji-category">Smileys</div>
+                            <div class="emoji-grid">
+                                <span class="emoji">&#128512;</span
+                                ><span class="emoji">&#128515;</span
+                                ><span class="emoji">&#128516;</span
+                                ><span class="emoji">&#128513;</span>
+                                <span class="emoji">&#128514;</span
+                                ><span class="emoji">&#128517;</span
+                                ><span class="emoji">&#129315;</span
+                                ><span class="emoji">&#128518;</span>
+                                <span class="emoji">&#128578;</span
+                                ><span class="emoji">&#128521;</span
+                                ><span class="emoji">&#128522;</span
+                                ><span class="emoji">&#128519;</span>
+                                <span class="emoji">&#129392;</span
+                                ><span class="emoji">&#128525;</span
+                                ><span class="emoji">&#128536;</span
+                                ><span class="emoji">&#128523;</span>
+                                <span class="emoji">&#128539;</span
+                                ><span class="emoji">&#129300;</span
+                                ><span class="emoji">&#129320;</span
+                                ><span class="emoji">&#128528;</span>
+                                <span class="emoji">&#128564;</span
+                                ><span class="emoji">&#129298;</span
+                                ><span class="emoji">&#129301;</span
+                                ><span class="emoji">&#128567;</span>
+                                <span class="emoji">&#128546;</span
+                                ><span class="emoji">&#128557;</span
+                                ><span class="emoji">&#128545;</span
+                                ><span class="emoji">&#128544;</span>
+                                <span class="emoji">&#128561;</span
+                                ><span class="emoji">&#128552;</span
+                                ><span class="emoji">&#129395;</span
+                                ><span class="emoji">&#128526;</span>
+                            </div>
+                            <div class="emoji-category">
+                                Gestures &amp; people
+                            </div>
+                            <div class="emoji-grid">
+                                <span class="emoji">&#128077;</span
+                                ><span class="emoji">&#128078;</span
+                                ><span class="emoji">&#128076;</span
+                                ><span class="emoji">&#9996;&#65039;</span>
+                                <span class="emoji">&#129310;</span
+                                ><span class="emoji">&#128075;</span
+                                ><span class="emoji">&#129309;</span
+                                ><span class="emoji">&#128591;</span>
+                                <span class="emoji">&#128079;</span
+                                ><span class="emoji">&#128170;</span
+                                ><span class="emoji">&#129335;</span
+                                ><span class="emoji">&#128646;</span>
+                                <span class="emoji">&#128587;</span
+                                ><span class="emoji">&#129489;</span
+                                ><span class="emoji">&#128118;</span
+                                ><span class="emoji">&#129497;</span>
+                            </div>
+                            <div class="emoji-category">Hearts</div>
+                            <div class="emoji-grid">
+                                <span class="emoji">&#10084;&#65039;</span
+                                ><span class="emoji">&#128167;</span
+                                ><span class="emoji">&#128155;</span
+                                ><span class="emoji">&#128154;</span>
+                                <span class="emoji">&#128153;</span
+                                ><span class="emoji">&#128156;</span
+                                ><span class="emoji">&#128420;</span
+                                ><span class="emoji">&#129293;</span>
+                                <span class="emoji">&#128148;</span
+                                ><span class="emoji">&#128149;</span
+                                ><span class="emoji">&#128150;</span
+                                ><span class="emoji">&#128175;</span>
+                            </div>
+                            <div class="emoji-category">Animals</div>
+                            <div class="emoji-grid">
+                                <span class="emoji">&#128054;</span
+                                ><span class="emoji">&#128049;</span
+                                ><span class="emoji">&#129409;</span
+                                ><span class="emoji">&#128047;</span>
+                                <span class="emoji">&#128056;</span
+                                ><span class="emoji">&#128053;</span
+                                ><span class="emoji">&#128020;</span
+                                ><span class="emoji">&#128038;</span>
+                                <span class="emoji">&#129419;</span
+                                ><span class="emoji">&#128034;</span
+                                ><span class="emoji">&#128013;</span
+                                ><span class="emoji">&#128024;</span>
+                            </div>
+                            <div class="emoji-category">Food</div>
+                            <div class="emoji-grid">
+                                <span class="emoji">&#127822;</span
+                                ><span class="emoji">&#127820;</span
+                                ><span class="emoji">&#127817;</span
+                                ><span class="emoji">&#127815;</span>
+                                <span class="emoji">&#127829;</span
+                                ><span class="emoji">&#127828;</span
+                                ><span class="emoji">&#127839;</span
+                                ><span class="emoji">&#127831;</span>
+                                <span class="emoji">&#127856;</span
+                                ><span class="emoji">&#9749;</span
+                                ><span class="emoji">&#127861;</span
+                                ><span class="emoji">&#127866;</span>
+                            </div>
+                            <div class="emoji-category">
+                                Activities &amp; objects
+                            </div>
+                            <div class="emoji-grid">
+                                <span class="emoji">&#9917;</span
+                                ><span class="emoji">&#127936;</span
+                                ><span class="emoji">&#127918;</span
+                                ><span class="emoji">&#127925;</span>
+                                <span class="emoji">&#128218;</span
+                                ><span class="emoji">&#128187;</span
+                                ><span class="emoji">&#128241;</span
+                                ><span class="emoji">&#9200;</span>
+                                <span class="emoji">&#127881;</span
+                                ><span class="emoji">&#128293;</span
+                                ><span class="emoji">&#11088;</span
+                                ><span class="emoji">&#9989;</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        id="voiceRecordButton"
+                        title="Record voice message"
+                        aria-label="Record voice message"
+                        class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-300 flex items-center justify-center flex-shrink-0 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                        <i
+                            class="fa-solid fa-microphone text-sm"
+                            id="voiceRecordIcon"
+                        ></i>
+                    </button>
+                    <span
+                        id="voiceRecordingStatus"
+                        class="hidden text-xs whitespace-nowrap"
+                        aria-live="polite"
+                    ></span>
+                    <button
+                        type="button"
+                        id="voiceCancelButton"
+                        title="Cancel recording"
+                        aria-label="Cancel recording"
+                        class="hidden w-8 h-8 rounded-full text-gray-500 hover:text-red-600 items-center justify-center flex-shrink-0"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+
+                    <input
+                        type="text"
+                        name="content"
+                        placeholder="Type a message"
+                        maxlength="500"
+                        autocomplete="off"
+                        autofocus
+                        id="messageInput"
+                        class="flex-1 px-4 py-2.5 rounded-full bg-gray-100 dark:bg-gray-800 text-sm border-none focus:ring-2 focus:ring-primary-500"
+                    />
+
+                    <button
+                        type="submit"
+                        title="Send"
+                        class="w-11 h-11 rounded-full bg-primary-600 hover:bg-primary-700 text-white flex items-center justify-center flex-shrink-0"
+                    >
+                        <i class="fa-solid fa-paper-plane text-sm"></i>
+                    </button>
+                </form>
+                {{end}}
+            </div>
+        </div>
+
+        <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+            <img id="lightboxImg" src="" alt="" />
+        </div>
+
+        <script>
+            var darkToggle = document.getElementById("darkToggle");
+            var darkIcon = document.getElementById("darkIcon");
+
+            function applyTheme(isDark) {
+                document.documentElement.classList.toggle("dark", isDark);
+                darkIcon.className = isDark
+                    ? "fa-solid fa-sun text-sm"
+                    : "fa-solid fa-moon text-sm";
+            }
+            applyTheme(localStorage.getItem("theme") === "dark");
+
+            if (darkToggle) {
+                darkToggle.addEventListener("click", function () {
+                    var isDark =
+                        !document.documentElement.classList.contains("dark");
+                    applyTheme(isDark);
+                    localStorage.setItem("theme", isDark ? "dark" : "light");
+                });
+            }
+
+            var tabs = document.querySelectorAll(".sidebar-tab");
+            var panels = document.querySelectorAll(".sidebar-panel");
+            tabs.forEach(function (tab) {
+                tab.addEventListener("click", function () {
+                    tabs.forEach(function (t) {
+                        t.classList.remove("bg-primary-600", "text-white");
+                        t.classList.add(
+                            "bg-gray-100",
+                            "dark:bg-gray-800",
+                            "text-gray-600",
+                            "dark:text-gray-300",
+                        );
+                    });
+                    tab.classList.add("bg-primary-600", "text-white");
+                    tab.classList.remove(
+                        "bg-gray-100",
+                        "dark:bg-gray-800",
+                        "text-gray-600",
+                        "dark:text-gray-300",
+                    );
+
+                    var target = tab.dataset.tab;
+                    panels.forEach(function (p) {
+                        p.classList.toggle(
+                            "hidden",
+                            p.dataset.panel !== target,
+                        );
+                    });
+                });
+            });
+
+            var chatFilter = document.getElementById("chatFilter");
+            if (chatFilter) {
+                chatFilter.addEventListener("input", function () {
+                    var q = chatFilter.value.trim().toLowerCase();
+                    document
+                        .querySelectorAll(".conv-item")
+                        .forEach(function (item) {
+                            var name = item
+                                .querySelector(".conv-name-text")
+                                .textContent.toLowerCase();
+                            var preview = item
+                                .querySelector(".conv-preview-text")
+                                .textContent.toLowerCase();
+                            var match =
+                                name.indexOf(q) !== -1 ||
+                                preview.indexOf(q) !== -1;
+                            item.style.display = match ? "" : "none";
+                        });
+                });
+            }
+
+            var selectAllConversations = document.getElementById(
+                "selectAllConversations",
+            );
+            var toggleConversationSelection = document.getElementById(
+                "toggleConversationSelection",
+            );
+            var conversationSelectionActions = document.getElementById(
+                "conversationSelectionActions",
+            );
+            var conversationSelectionCount = document.getElementById(
+                "conversationSelectionCount",
+            );
+            var conversationSelections = document.querySelectorAll(
+                ".conversation-select",
+            );
+            function updateConversationSelectionCount() {
+                var selectedCount = document.querySelectorAll(
+                    ".conversation-select:checked",
+                ).length;
+                conversationSelectionCount.textContent =
+                    selectedCount +
+                    (selectedCount === 1 ? " conversation selected" : " conversations selected");
+            }
+            if (toggleConversationSelection) {
+                toggleConversationSelection.addEventListener(
+                    "click",
+                    function () {
+                        var selectionMode =
+                            toggleConversationSelection.textContent.trim() ===
+                            "Select";
+                        toggleConversationSelection.textContent = selectionMode
+                            ? "Cancel"
+                            : "Select";
+                        conversationSelectionActions.classList.toggle(
+                            "hidden",
+                            !selectionMode,
+                        );
+                        conversationSelectionActions.classList.toggle(
+                            "flex",
+                            selectionMode,
+                        );
+                        conversationSelections.forEach(function (checkbox) {
+                            checkbox.classList.toggle("hidden", !selectionMode);
+                            if (!selectionMode) {
+                                checkbox.checked = false;
+                            }
+                        });
+                        selectAllConversations.textContent = "Select all";
+                        updateConversationSelectionCount();
+                    },
+                );
+            }
+            if (selectAllConversations) {
+                selectAllConversations.addEventListener("click", function () {
+                    var selectAll = Array.prototype.some.call(
+                        conversationSelections,
+                        function (checkbox) {
+                            return !checkbox.checked;
+                        },
+                    );
+                    conversationSelections.forEach(function (checkbox) {
+                        checkbox.checked = selectAll;
+                    });
+                    updateConversationSelectionCount();
+                    selectAllConversations.textContent =
+                        selectAll && conversationSelections.length > 0
+                            ? "Clear selection"
+                            : "Select all";
+                });
+            }
+            conversationSelections.forEach(function (checkbox) {
+                checkbox.addEventListener("change", function () {
+                    if (!selectAllConversations) {
+                        return;
+                    }
+                    var allSelected =
+                        conversationSelections.length > 0 &&
+                        Array.prototype.every.call(
+                            conversationSelections,
+                            function (selection) {
+                                return selection.checked;
+                            },
+                        );
+                        updateConversationSelectionCount();
+                        selectAllConversations.textContent = allSelected
+                        ? "Clear selection"
+                        : "Select all";
+                });
+            });
+
+            var deleteConversationsForm = document.getElementById(
+                "deleteConversationsForm",
+            );
+            if (deleteConversationsForm) {
+                deleteConversationsForm.addEventListener(
+                    "submit",
+                    function (event) {
+                        var selectedCount = document.querySelectorAll(
+                            ".conversation-select:checked",
+                        ).length;
+                        if (selectedCount === 0) {
+                            event.preventDefault();
+                            window.alert("Select at least one conversation.");
+                            return;
+                        }
+                        if (
+                            !window.confirm(
+                                "Are you sure you want to delete the selected conversation(s)?. Can not be undone.",
+                            )
+                        ) {
+                            event.preventDefault();
+                        }
+                    },
+                );
+            }
+
+            var logoutForm = document.getElementById("logoutForm");
+            if (logoutForm) {
+                logoutForm.addEventListener("submit", function () {
+                    if (ws) {
+                        ws.close();
+                    }
+                });
+            }
+
+            var box = document.getElementById("messages");
+            if (box) {
+                box.scrollTop = box.scrollHeight;
+            }
+
+            var notifBanner = document.getElementById("notifBanner");
+            var notifDismiss = document.getElementById("notifDismiss");
+            if (notifDismiss) {
+                notifDismiss.addEventListener("click", function () {
+                    notifBanner.style.display = "none";
+                });
+            }
+
+            var searchToggle = document.getElementById("searchToggle");
+            var searchForm = document.getElementById("searchForm");
+            if (searchToggle) {
+                searchToggle.addEventListener("click", function () {
+                    searchForm.classList.toggle("open");
+                    if (searchForm.classList.contains("open")) {
+                        searchForm.querySelector("input[name=search]").focus();
+                    }
+                });
+                if (searchForm.querySelector("input[name=search]").value) {
+                    searchForm.classList.add("open");
+                }
+            }
+
+            var emojiToggle = document.getElementById("emojiToggle");
+            var emojiPanel = document.getElementById("emojiPanel");
+            var messageInput = document.getElementById("messageInput");
+
+            if (emojiToggle) {
+                emojiToggle.addEventListener("click", function () {
+                    emojiPanel.classList.toggle("open");
+                });
+
+                document.querySelectorAll(".emoji").forEach(function (el) {
+                    el.addEventListener("click", function () {
+                        var start = messageInput.selectionStart;
+                        var end = messageInput.selectionEnd;
+                        var text = messageInput.value;
+                        messageInput.value =
+                            text.slice(0, start) +
+                            el.textContent +
+                            text.slice(end);
+                        messageInput.focus();
+                        messageInput.selectionStart =
+                            messageInput.selectionEnd =
+                                start + el.textContent.length;
+                        emojiPanel.classList.remove("open");
+                    });
+                });
+
+                document.addEventListener("click", function (e) {
+                    if (
+                        !emojiToggle.contains(e.target) &&
+                        !emojiPanel.contains(e.target)
+                    ) {
+                        emojiPanel.classList.remove("open");
+                    }
+                });
+            }
+
+            var attachmentInput = document.getElementById("attachmentInput");
+            var voiceRecordButton =
+                document.getElementById("voiceRecordButton");
+            var voiceRecordIcon = document.getElementById("voiceRecordIcon");
+            var voiceRecordingStatus = document.getElementById(
+                "voiceRecordingStatus",
+            );
+            var voiceCancelButton =
+                document.getElementById("voiceCancelButton");
+            var voiceReviewActions = document.getElementById(
+                "voiceReviewActions",
+            );
+            var voiceReviewCancel = document.getElementById(
+                "voiceReviewCancel",
+            );
+            var messageForm = attachmentInput
+                ? attachmentInput.closest("form")
+                : null;
+            var attachPreview = document.getElementById("attachPreview");
+            var attachPreviewContent = document.getElementById(
+                "attachPreviewContent",
+            );
+            var attachCancel = document.getElementById("attachCancel");
+            var voiceReviewPending = false;
+            var installingVoiceReviewFile = false;
+            var voicePreviewURL = "";
+
+            function clearVoiceReview() {
+                if (voicePreviewURL) {
+                    URL.revokeObjectURL(voicePreviewURL);
+                    voicePreviewURL = "";
+                }
+                voiceReviewPending = false;
+                installingVoiceReviewFile = false;
+                voiceRecordButton.disabled = false;
+                voiceReviewActions.classList.add("hidden");
+                voiceReviewActions.classList.remove("flex");
+                attachCancel.classList.remove("hidden");
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + " B";
+                if (bytes < 1024 * 1024)
+                    return (bytes / 1024).toFixed(1) + " KB";
+                return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+            }
+
+            if (attachmentInput) {
+                attachmentInput.addEventListener("change", function () {
+                    if (attachmentInput.files.length === 0) {
+                        attachPreview.classList.add("hidden");
+                        attachPreview.classList.remove("flex");
+                        return;
+                    }
+                    var file = attachmentInput.files[0];
+                    var sizeText = formatFileSize(file.size);
+                    var isVoiceReviewFile = installingVoiceReviewFile;
+                    installingVoiceReviewFile = false;
+                    if (voiceReviewPending && !isVoiceReviewFile) {
+                        clearVoiceReview();
+                    }
+
+                    function showPreview(innerHTML) {
+                        attachPreviewContent.innerHTML = innerHTML;
+                        attachPreview.classList.remove("hidden");
+                        attachPreview.classList.add("flex");
+                    }
+
+                    if (voiceReviewPending && isVoiceReviewFile) {
+                        attachPreviewContent.innerHTML = "";
+                        var audioPreview = document.createElement("audio");
+                        audioPreview.controls = true;
+                        audioPreview.className = "w-full min-w-0";
+                        if (voicePreviewURL) {
+                            URL.revokeObjectURL(voicePreviewURL);
+                        }
+                        voicePreviewURL = URL.createObjectURL(file);
+                        audioPreview.src = voicePreviewURL;
+                        attachPreviewContent.append(audioPreview);
+                        attachPreview.classList.remove("hidden");
+                        attachPreview.classList.add("flex");
+                        attachCancel.classList.add("hidden");
+                        voiceReviewActions.classList.remove("hidden");
+                        voiceReviewActions.classList.add("flex");
+                        return;
+                    }
+
+                    if (file.type.indexOf("image/") === 0) {
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            showPreview(
+                                '<img src="' +
+                                    e.target.result +
+                                    '" class="max-h-12 rounded flex-shrink-0" alt="">' +
+                                    '<div class="min-w-0"><div class="text-sm font-medium truncate">' +
+                                    file.name +
+                                    "</div>" +
+                                    '<div class="text-xs text-gray-500">' +
+                                    sizeText +
+                                    "</div></div>",
+                            );
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        var icon =
+                            file.type.indexOf("audio/") === 0
+                                ? "fa-music"
+                                : file.type.indexOf("video/") === 0
+                                  ? "fa-film"
+                                  : "fa-paperclip";
+                        showPreview(
+                            '<i class="fa-solid ' +
+                                icon +
+                                ' text-xl flex-shrink-0 text-gray-500"></i>' +
+                                '<div class="min-w-0"><div class="text-sm font-medium truncate">' +
+                                file.name +
+                                "</div>" +
+                                '<div class="text-xs text-gray-500">' +
+                                sizeText +
+                                "</div></div>",
+                        );
+                    }
+                });
+
+                attachCancel.addEventListener("click", function () {
+                    clearVoiceReview();
+                    attachmentInput.value = "";
+                    attachPreviewContent.innerHTML = "";
+                    attachPreview.classList.add("hidden");
+                    attachPreview.classList.remove("flex");
+                });
+            }
+
+            if (voiceReviewCancel && attachmentInput) {
+                voiceReviewCancel.addEventListener("click", function () {
+                    clearVoiceReview();
+                    attachmentInput.value = "";
+                    attachPreviewContent.innerHTML = "";
+                    attachPreview.classList.add("hidden");
+                    attachPreview.classList.remove("flex");
+                });
+            }
+
+            if (voiceRecordButton && messageForm) {
+                var voiceRecorder;
+                var voiceStream;
+                var voiceChunks = [];
+                var discardVoiceRecording = false;
+                var maxVoiceMessageSize = 10 * 1024 * 1024;
+
+                function finishVoiceRecording() {
+                    if (voiceStream) {
+                        voiceStream.getTracks().forEach(function (track) {
+                            track.stop();
+                        });
+                        voiceStream = null;
+                    }
+                    voiceRecorder = null;
+                    voiceRecordButton.classList.remove("recording");
+                    voiceRecordButton.title = "Record voice message";
+                    voiceRecordButton.setAttribute(
+                        "aria-label",
+                        "Record voice message",
+                    );
+                    voiceRecordIcon.className =
+                        "fa-solid fa-microphone text-sm";
+                    voiceRecordingStatus.classList.add("hidden");
+                    voiceCancelButton.classList.add("hidden");
+                    voiceCancelButton.classList.remove("flex");
+                }
+
+                voiceRecordButton.addEventListener(
+                    "click",
+                    async function () {
+                        if (voiceRecorder && voiceRecorder.state === "recording") {
+                            voiceRecorder.stop();
+                            return;
+                        }
+
+                        if (
+                            !navigator.mediaDevices ||
+                            !navigator.mediaDevices.getUserMedia ||
+                            !window.MediaRecorder
+                        ) {
+                            alert(
+                                "Voice recording is not supported by this browser.",
+                            );
+                            return;
+                        }
+
+                        try {
+                            voiceStream =
+                                await navigator.mediaDevices.getUserMedia({
+                                    audio: true,
+                                });
+                            var mimeTypes = [
+                                "audio/webm;codecs=opus",
+                                "audio/webm",
+                                "audio/ogg;codecs=opus",
+                                "audio/mp4",
+                            ];
+                            var recorderOptions = {};
+                            for (var i = 0; i < mimeTypes.length; i++) {
+                                if (
+                                    MediaRecorder.isTypeSupported(
+                                        mimeTypes[i],
+                                    )
+                                ) {
+                                    recorderOptions.mimeType = mimeTypes[i];
+                                    break;
+                                }
+                            }
+
+                            voiceChunks = [];
+                            discardVoiceRecording = false;
+                            voiceRecorder = new MediaRecorder(
+                                voiceStream,
+                                recorderOptions,
+                            );
+                            voiceRecorder.addEventListener(
+                                "dataavailable",
+                                function (event) {
+                                    if (event.data.size > 0) {
+                                        voiceChunks.push(event.data);
+                                    }
+                                },
+                            );
+                            voiceRecorder.addEventListener(
+                                "error",
+                                function () {
+                                    discardVoiceRecording = true;
+                                    alert("Voice recording failed.");
+                                    if (
+                                        voiceRecorder &&
+                                        voiceRecorder.state !== "inactive"
+                                    ) {
+                                        voiceRecorder.stop();
+                                    } else {
+                                        finishVoiceRecording();
+                                    }
+                                },
+                            );
+                            voiceRecorder.addEventListener(
+                                "stop",
+                                function () {
+                                    var recorder = voiceRecorder;
+                                    var blob = new Blob(voiceChunks, {
+                                        type:
+                                            recorder && recorder.mimeType
+                                                ? recorder.mimeType
+                                                : "audio/webm",
+                                    });
+                                    var mimeType =
+                                        blob.type || "audio/webm";
+                                    var extension =
+                                        mimeType.indexOf("audio/mp4") === 0
+                                            ? "m4a"
+                                            : mimeType.indexOf("audio/ogg") === 0
+                                              ? "ogg"
+                                              : "webm";
+                                    finishVoiceRecording();
+
+                                    if (discardVoiceRecording) {
+                                        voiceChunks = [];
+                                        return;
+                                    }
+                                    if (blob.size === 0) {
+                                        alert(
+                                            "The recording was empty. Please try again.",
+                                        );
+                                        voiceChunks = [];
+                                        return;
+                                    }
+                                    if (blob.size > maxVoiceMessageSize) {
+                                        alert(
+                                            "Voice messages must be 10 MB or smaller.",
+                                        );
+                                        voiceChunks = [];
+                                        return;
+                                    }
+
+                                    var voiceFile = new File(
+                                        [blob],
+                                        "voice-message." + extension,
+                                        { type: mimeType },
+                                    );
+                                    var transfer = new DataTransfer();
+                                    transfer.items.add(voiceFile);
+                                    attachmentInput.files = transfer.files;
+                                    voiceReviewPending = true;
+                                    installingVoiceReviewFile = true;
+                                    voiceRecordButton.disabled = true;
+                                    attachmentInput.dispatchEvent(
+                                        new Event("change", { bubbles: true }),
+                                    );
+                                    voiceChunks = [];
+                                },
+                            );
+                            voiceRecorder.start();
+                            voiceRecordButton.classList.add("recording");
+                            voiceRecordButton.title = "Stop recording";
+                            voiceRecordButton.setAttribute(
+                                "aria-label",
+                                "Stop voice recording",
+                            );
+                            voiceRecordIcon.className =
+                                "fa-solid fa-stop text-sm";
+                            voiceRecordingStatus.textContent =
+                                "Recording...";
+                            voiceRecordingStatus.classList.remove("hidden");
+                            voiceCancelButton.classList.remove("hidden");
+                            voiceCancelButton.classList.add("flex");
+                        } catch (error) {
+                            finishVoiceRecording();
+                            if (error.name === "NotAllowedError") {
+                                alert(
+                                    "Microphone access was denied. Allow microphone access to record a voice message.",
+                                );
+                                return;
+                            }
+                            alert("Could not start voice recording.");
+                        }
+                    },
+                );
+
+                voiceCancelButton.addEventListener("click", function () {
+                    discardVoiceRecording = true;
+                    if (voiceRecorder && voiceRecorder.state === "recording") {
+                        voiceRecorder.stop();
+                    } else {
+                        finishVoiceRecording();
+                    }
+                });
+            }
+
+            function openLightbox(src) {
+                document.getElementById("lightboxImg").src = src;
+                document.getElementById("lightbox").classList.add("open");
+            }
+            function closeLightbox() {
+                document.getElementById("lightbox").classList.remove("open");
+            }
+            document
+                .querySelectorAll(".attachment-image")
+                .forEach(function (img) {
+                    img.addEventListener("click", function () {
+                        openLightbox(img.src);
+                    });
+                });
+
+            var chatDiv = document.querySelector(".chat");
+            var currentChatWithID = chatDiv
+                ? parseInt(chatDiv.dataset.chatWithId, 10)
+                : 0;
+            var currentConversationID = chatDiv
+                ? parseInt(chatDiv.dataset.conversationId, 10)
+                : 0;
+
+            var ws = new WebSocket("ws://" + window.location.host + "/ws");
+
+            ws.onerror = function (err) {
+                console.log("WebSocket error:", err);
+            };
+
+            var typingIndicator = document.getElementById("typingIndicator");
+            var typingTimeout;
+
+            ws.onmessage = function (event) {
+                var msg = JSON.parse(event.data);
+
+                if (
+                    msg.type === "presence" &&
+                    msg.user_id === currentChatWithID
+                ) {
+                    var dot = document.getElementById("presenceDot");
+                    if (dot) {
+                        dot.classList.toggle("online", msg.online);
+                    }
+                    var statusText =
+                        document.getElementById("headerStatusText");
+                    if (statusText) {
+                        statusText.textContent = msg.online
+                            ? "Online"
+                            : "Offline";
+                        statusText.classList.toggle(
+                            "text-green-600",
+                            msg.online,
+                        );
+                        statusText.classList.toggle(
+                            "dark:text-green-400",
+                            msg.online,
+                        );
+                        statusText.classList.toggle(
+                            "text-gray-500",
+                            !msg.online,
+                        );
+                        statusText.classList.toggle(
+                            "dark:text-gray-400",
+                            !msg.online,
+                        );
+                    }
+                }
+
+                if (
+                    msg.type === "typing" &&
+                    msg.conversation_id === currentConversationID
+                ) {
+                    typingIndicator.classList.remove("hidden");
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(function () {
+                        typingIndicator.classList.add("hidden");
+                    }, 3000);
+                }
+            };
+
+            var lastTypingSent = 0;
+            if (messageInput) {
+                messageInput.addEventListener("input", function () {
+                    var now = Date.now();
+                    if (
+                        now - lastTypingSent > 2000 &&
+                        ws &&
+                        ws.readyState === WebSocket.OPEN
+                    ) {
+                        lastTypingSent = now;
+                        ws.send(
+                            JSON.stringify({
+                                type: "typing",
+                                conversation_id: currentConversationID,
+                            }),
+                        );
+                    }
+                });
+            }
+
+            var searchInput = document.getElementById("searchInput");
+            var searchDebounce;
+
+            if (searchInput) {
+                searchInput.addEventListener("input", function () {
+                    clearTimeout(searchDebounce);
+                    var term = searchInput.value;
+
+                    searchDebounce = setTimeout(function () {
+                        fetch(
+                            "/chat/fragment?c=" +
+                                currentConversationID +
+                                "&search=" +
+                                encodeURIComponent(term),
+                        )
+                            .then(function (response) {
+                                return response.text();
+                            })
+                            .then(function (html) {
+                                var messagesBox =
+                                    document.getElementById("messages");
+                                messagesBox.innerHTML = html;
+                                messagesBox.scrollTop =
+                                    messagesBox.scrollHeight;
+                                document
+                                    .querySelectorAll(".attachment-image")
+                                    .forEach(function (img) {
+                                        img.addEventListener(
+                                            "click",
+                                            function () {
+                                                openLightbox(img.src);
+                                            },
+                                        );
+                                    });
+                            });
+                    }, 400);
+                });
+            }
+
+            const VAPID_PUBLIC_KEY = "{{.VapidPublicKey}}";
+
+            function urlBase64ToUint8Array(base64String) {
+                const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/-/g, "+")
+                    .replace(/_/g, "/");
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; i++) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            }
+
+            var notifBtn = document.getElementById("enableNotifications");
+            if (notifBtn) {
+                notifBtn.addEventListener("click", async function () {
+                    if (
+                        !("serviceWorker" in navigator) ||
+                        !("PushManager" in window)
+                    ) {
+                        alert(
+                            "Push notifications aren't supported in this browser.",
+                        );
+                        return;
+                    }
+
+                    const registration =
+                        await navigator.serviceWorker.register("/static/sw.js");
+
+                    const permission = await Notification.requestPermission();
+                    if (permission !== "granted") {
+                        alert("Notification permission was not granted.");
+                        return;
+                    }
+
+                    const subscription =
+                        await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey:
+                                urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                        });
+
+                    await fetch("/push/subscribe", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(subscription),
+                    });
+
+                    notifBtn.textContent = "Enabled";
+                    notifBtn.disabled = true;
+                });
+            }
+        </script>
+    </body>
+</html>
