@@ -14,8 +14,9 @@ var db *sql.DB
 
 func initDB() {
 
-	_ := godotenv.Load()
-	
+if err := godotenv.Load(); err != nil {
+    log.Println("No .env file found, using system environment variables")
+}
 
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
