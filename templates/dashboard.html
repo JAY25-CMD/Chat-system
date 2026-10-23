@@ -458,7 +458,7 @@
                                         messages yet{{end}}
                                     </div>
                                     {{if gt .Unread 0}}<span
-                                        class="flex-shrink-0 min-w-[1.1rem] h-[1.1rem] rounded-full bg-primary-600 text-white text-[0.65rem] font-bold flex items-center justify-center px-1"
+                                        class="conv-unread-badge flex-shrink-0 min-w-[1.1rem] h-[1.1rem] rounded-full bg-primary-600 text-white text-[0.65rem] font-bold flex items-center justify-center px-1"
                                         >{{.Unread}}</span
                                     >{{end}}
                                 </div>
@@ -1602,13 +1602,20 @@
             function closeLightbox() {
                 document.getElementById("lightbox").classList.remove("open");
             }
-            document
-                .querySelectorAll(".attachment-image")
-                .forEach(function (img) {
-                    img.addEventListener("click", function () {
-                        openLightbox(img.src);
+            function bindAttachmentImages() {
+                document
+                    .querySelectorAll(".attachment-image")
+                    .forEach(function (img) {
+                        if (img.dataset.lightboxBound === "1") {
+                            return;
+                        }
+                        img.dataset.lightboxBound = "1";
+                        img.addEventListener("click", function () {
+                            openLightbox(img.src);
+                        });
                     });
-                });
+            }
+            bindAttachmentImages();
 
             var chatDiv = document.querySelector(".chat");
             var currentChatWithID = chatDiv
@@ -1618,66 +1625,174 @@
                 ? parseInt(chatDiv.dataset.conversationId, 10)
                 : 0;
 
-            // On HTTPS (Render/Layerbase), "ws://" is blocked as mixed content,
-            // so presence/typing silently stop working. Match the page scheme.
-            var wsScheme =
-                window.location.protocol === "https:" ? "wss://" : "ws://";
-            var ws = new WebSocket(wsScheme + window.location.host + "/ws");
-
-            ws.onerror = function (err) {
-                console.log("WebSocket error:", err);
-            };
-
+            // On HTTPS (Render/Layerbase), "ws://" is blocked as mixed content.
+            // Match the page scheme and reconnect automatically if it drops.
+            var ws = null;
+            var wsReconnectTimer = null;
             var typingIndicator = document.getElementById("typingIndicator");
             var typingTimeout;
 
-            ws.onmessage = function (event) {
-                var msg = JSON.parse(event.data);
-
-                if (
-                    msg.type === "presence" &&
-                    msg.user_id === currentChatWithID
-                ) {
-                    var dot = document.getElementById("presenceDot");
-                    if (dot) {
-                        dot.classList.toggle("online", msg.online);
-                    }
-                    var statusText =
-                        document.getElementById("headerStatusText");
-                    if (statusText) {
-                        statusText.textContent = msg.online
-                            ? "Online"
-                            : "Offline";
-                        statusText.classList.toggle(
-                            "text-green-600",
-                            msg.online,
-                        );
-                        statusText.classList.toggle(
-                            "dark:text-green-400",
-                            msg.online,
-                        );
-                        statusText.classList.toggle(
-                            "text-gray-500",
-                            !msg.online,
-                        );
-                        statusText.classList.toggle(
-                            "dark:text-gray-400",
-                            !msg.online,
-                        );
-                    }
+            // Replace the thread with fresh server-rendered HTML. The server
+            // fragment is used so formatting, attachments and delete buttons
+            // stay identical to a normal page load.
+            function refreshMessages() {
+                if (!currentConversationID) {
+                    return;
                 }
 
-                if (
-                    msg.type === "typing" &&
-                    msg.conversation_id === currentConversationID
-                ) {
-                    typingIndicator.classList.remove("hidden");
-                    clearTimeout(typingTimeout);
-                    typingTimeout = setTimeout(function () {
-                        typingIndicator.classList.add("hidden");
-                    }, 3000);
+                var searchInput = document.getElementById("searchInput");
+                var query = "";
+                if (searchInput && searchInput.value.trim() !== "") {
+                    query =
+                        "&search=" + encodeURIComponent(searchInput.value);
                 }
-            };
+
+                fetch(
+                    "/chat/fragment?c=" + currentConversationID + query,
+                    { cache: "no-store" },
+                )
+                    .then(function (response) {
+                        return response.text();
+                    })
+                    .then(function (html) {
+                        var box = document.getElementById("messages");
+                        if (!box) {
+                            return;
+                        }
+                        var nearBottom =
+                            box.scrollHeight - box.scrollTop - box.clientHeight <
+                            100;
+                        box.innerHTML = html;
+                        bindAttachmentImages();
+                        if (nearBottom) {
+                            box.scrollTop = box.scrollHeight;
+                        }
+                    });
+            }
+
+            function updateConversationPreview(msg, countAsUnread) {
+                var link = document.querySelector(
+                    '.conv-list a[href="/dashboard?c=' +
+                        msg.conversation_id +
+                        '"]',
+                );
+                if (!link) {
+                    return;
+                }
+
+                var preview = link.querySelector(".conv-preview-text");
+                if (preview) {
+                    preview.textContent =
+                        (msg.mine ? "You" : msg.sender) + ": " + msg.preview;
+                }
+
+                if (!countAsUnread) {
+                    return;
+                }
+
+                var row = link.querySelector(
+                    ".flex.justify-between.items-center.gap-2",
+                );
+                if (!row) {
+                    return;
+                }
+
+                var badge = row.querySelector(".conv-unread-badge");
+                if (!badge) {
+                    badge = document.createElement("span");
+                    badge.className =
+                        "conv-unread-badge flex-shrink-0 min-w-[1.1rem] h-[1.1rem] rounded-full bg-primary-600 text-white text-[0.65rem] font-bold flex items-center justify-center px-1";
+                    row.appendChild(badge);
+                }
+                badge.textContent = String(
+                    (parseInt(badge.textContent, 10) || 0) + 1,
+                );
+            }
+
+            function connectWebSocket() {
+                var wsScheme =
+                    window.location.protocol === "https:" ? "wss://" : "ws://";
+                ws = new WebSocket(wsScheme + window.location.host + "/ws");
+
+                ws.onopen = function () {
+                    clearTimeout(wsReconnectTimer);
+                };
+
+                ws.onerror = function (err) {
+                    console.log("WebSocket error:", err);
+                };
+
+                ws.onclose = function () {
+                    ws = null;
+                    clearTimeout(wsReconnectTimer);
+                    wsReconnectTimer = setTimeout(connectWebSocket, 3000);
+                };
+
+                ws.onmessage = function (event) {
+                    var msg = JSON.parse(event.data);
+
+                    // A new message was saved: refresh the open thread, or
+                    // update the sidebar preview/unread count for another chat.
+                    if (msg.type === "message") {
+                        if (msg.conversation_id === currentConversationID) {
+                            updateConversationPreview(msg, false);
+                            refreshMessages();
+                        } else {
+                            updateConversationPreview(msg, !msg.mine);
+                        }
+                        return;
+                    }
+
+                    if (
+                        msg.type === "presence" &&
+                        msg.user_id === currentChatWithID
+                    ) {
+                        var dot = document.getElementById("presenceDot");
+                        if (dot) {
+                            dot.classList.toggle("online", msg.online);
+                        }
+                        var statusText =
+                            document.getElementById("headerStatusText");
+                        if (statusText) {
+                            statusText.textContent = msg.online
+                                ? "Online"
+                                : "Offline";
+                            statusText.classList.toggle(
+                                "text-green-600",
+                                msg.online,
+                            );
+                            statusText.classList.toggle(
+                                "dark:text-green-400",
+                                msg.online,
+                            );
+                            statusText.classList.toggle(
+                                "text-gray-500",
+                                !msg.online,
+                            );
+                            statusText.classList.toggle(
+                                "dark:text-gray-400",
+                                !msg.online,
+                            );
+                        }
+                    }
+
+                    if (
+                        msg.type === "typing" &&
+                        msg.conversation_id === currentConversationID
+                    ) {
+                        if (!typingIndicator) {
+                            return;
+                        }
+                        typingIndicator.classList.remove("hidden");
+                        clearTimeout(typingTimeout);
+                        typingTimeout = setTimeout(function () {
+                            typingIndicator.classList.add("hidden");
+                        }, 3000);
+                    }
+                };
+            }
+
+            connectWebSocket();
 
             var lastTypingSent = 0;
             if (messageInput) {
@@ -1723,16 +1838,7 @@
                                 messagesBox.innerHTML = html;
                                 messagesBox.scrollTop =
                                     messagesBox.scrollHeight;
-                                document
-                                    .querySelectorAll(".attachment-image")
-                                    .forEach(function (img) {
-                                        img.addEventListener(
-                                            "click",
-                                            function () {
-                                                openLightbox(img.src);
-                                            },
-                                        );
-                                    });
+                                bindAttachmentImages();
                             });
                     }, 400);
                 });

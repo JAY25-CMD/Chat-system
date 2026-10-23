@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -498,7 +499,7 @@ func postMessageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else if !errors.Is(uploadErr, http.ErrMissingFile) {
-		http.Redirect(w, r, back+"?error="+uploadErr.Error(), http.StatusSeeOther)
+		http.Redirect(w, r, back+"&error="+uploadErr.Error(), http.StatusSeeOther)
 		return
 	}
 
@@ -517,10 +518,25 @@ func postMessageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	senderName := ""
+	if err := db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&senderName); err != nil {
+		log.Println("post message: could not load sender name:", err)
+	}
+
+	// Tell every open page in this conversation about the new message so it
+	// can refresh the thread immediately (the WebSocket used to carry only
+	// typing/presence, which is why messages needed a manual reload).
+	preview := strings.Join(strings.Fields(content), " ")
+	if preview == "" {
+		preview = "Sent an attachment"
+	}
+	if runes := []rune(preview); len(runes) > 80 {
+		preview = string(runes[:80]) + "..."
+	}
+	broadcastConversationMessage(conversationID, userID, senderName, preview)
+
 	members, err := otherMemberIDs(conversationID, userID)
 	if err == nil {
-		var senderName string
-		db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&senderName)
 		for _, memberID := range members {
 			if !isOnline(memberID) {
 				go sendPushToUser(memberID, senderName, "Sent you a new message", "/dashboard?c="+strconv.Itoa(conversationID))
@@ -771,6 +787,11 @@ func searchFragmentHandler(w http.ResponseWriter, r *http.Request) {
 
 	var messages []ChatMessage
 	if term == "" {
+		// The live-update path calls this endpoint with no search term, so a
+		// message that just arrived in the open thread is marked as read.
+		if err := markAsRead(conversationID, userID); err != nil {
+			log.Println("search fragment: could not mark as read:", err)
+		}
 		messages, err = getConversationMessages(conversationID, userID)
 	} else {
 		messages, err = searchMessages(conversationID, userID, term)

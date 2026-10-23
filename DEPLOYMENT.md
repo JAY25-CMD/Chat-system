@@ -79,8 +79,8 @@ worked.
 - **Attachments are stored on local disk (`uploads/`).** Render's filesystem is
   ephemeral, so files disappear after a redeploy or restart. Use an object
   store (S3, Cloudinary) or a Render persistent disk.
-- **Online presence/typing is stored in memory.** Run a single Render instance,
-  or use Redis, otherwise users connected to different instances will not see
-  each other's typing/presence.
+- **Online presence, typing and live message updates are stored in memory.**
+  Run a single Render instance, or use Redis pub/sub, otherwise users connected
+  to different instances will not see each other's messages until they reload.
 - **Never commit `.env`.** Keep using `.env` locally and the dashboard variables
   online.

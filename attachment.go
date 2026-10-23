@@ -29,6 +29,11 @@ func generateFilename(originalName string) (string, error) {
 func saveUploadedFile(r *http.Request) (filename, contentType string, size int64, err error) {
 	file, header, err := r.FormFile("attachment")
 	if err != nil {
+		// A request without a multipart body simply has no attachment. Treat
+		// it like a missing file instead of failing the whole message.
+		if errors.Is(err, http.ErrNotMultipart) {
+			return "", "", 0, http.ErrMissingFile
+		}
 		return "", "", 0, err
 	}
 	defer file.Close()

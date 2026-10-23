@@ -21,7 +21,18 @@ var upgrader = websocket.Upgrader{
 var (
 	connections = make(map[int]*websocket.Conn)
 	connMu      sync.Mutex
+	// Gorilla WebSocket allows only one writer at a time. Messages can be
+	// broadcast from HTTP handlers while pingLoop writes pings, so every write
+	// must go through this lock.
+	writeMu sync.Mutex
 )
+
+func writeToConn(conn *websocket.Conn, write func() error) error {
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	return write()
+}
 
 func registerConnection(userID int, conn *websocket.Conn) {
 	connMu.Lock()
@@ -126,7 +137,9 @@ func pingLoop(conn *websocket.Conn) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+		if err := writeToConn(conn, func() error {
+			return conn.WriteMessage(websocket.PingMessage, nil)
+		}); err != nil {
 			return
 		}
 	}
@@ -161,7 +174,52 @@ func notifyUser(userID int, payload interface{}) {
 		return
 	}
 
-	if err := conn.WriteJSON(payload); err != nil {
+	if err := writeToConn(conn, func() error {
+		return conn.WriteJSON(payload)
+	}); err != nil {
 		log.Println("notify error:", err)
 	}
+}
+
+// broadcastConversationMessage tells every member of a conversation that a new
+// message was saved, so open pages can refresh the thread immediately instead
+// of waiting for the user to reload.
+func broadcastConversationMessage(conversationID, senderID int, senderName, preview string) {
+	memberIDs, err := conversationMemberIDs(conversationID)
+	if err != nil {
+		log.Println("broadcastConversationMessage:", err)
+		return
+	}
+
+	for _, memberID := range memberIDs {
+		notifyUser(memberID, map[string]interface{}{
+			"type":            "message",
+			"conversation_id": conversationID,
+			"sender_id":       senderID,
+			"sender":          senderName,
+			"preview":         preview,
+			"mine":            memberID == senderID,
+		})
+	}
+}
+
+func conversationMemberIDs(conversationID int) ([]int, error) {
+	rows, err := db.Query(
+		"SELECT user_id FROM participants WHERE conversation_id = ?",
+		conversationID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
