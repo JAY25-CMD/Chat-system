@@ -1618,7 +1618,11 @@
                 ? parseInt(chatDiv.dataset.conversationId, 10)
                 : 0;
 
-            var ws = new WebSocket("ws://" + window.location.host + "/ws");
+            // On HTTPS (Render/Layerbase), "ws://" is blocked as mixed content,
+            // so presence/typing silently stop working. Match the page scheme.
+            var wsScheme =
+                window.location.protocol === "https:" ? "wss://" : "ws://";
+            var ws = new WebSocket(wsScheme + window.location.host + "/ws");
 
             ws.onerror = function (err) {
                 console.log("WebSocket error:", err);

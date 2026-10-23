@@ -39,7 +39,7 @@ func subscribeHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := db.Exec(`
 		INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
 		VALUES (?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)`,
+		ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth)`,
 		userID, sub.Endpoint, sub.Keys.P256dh, sub.Keys.Auth,
 	)
 	if err != nil {

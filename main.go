@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type DashboardData struct {
@@ -338,6 +339,16 @@ func main() {
 	initDB()
 	defer db.Close()
 
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if err := db.PingContext(r.Context()); err != nil {
+			log.Println("health check failed:", err)
+			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/login", loginHandler)
@@ -363,6 +374,21 @@ func main() {
 		fmt.Fprintln(w, "You are online:", isOnline(userID))
 	})
 
-	log.Println("server running at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// Hosting platforms (Render, Layerbase, Railway, ...) tell the app which
+	// port to listen on through PORT. Hardcoding 8080 makes the service fail
+	// its port scan on Render.
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := ":" + port
+
+	server := &http.Server{
+		Addr:              addr,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+
+	log.Printf("server running at http://localhost%s", addr)
+	log.Fatal(server.ListenAndServe())
 }
