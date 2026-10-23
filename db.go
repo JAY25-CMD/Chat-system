@@ -14,10 +14,8 @@ var db *sql.DB
 
 func initDB() {
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("could not load .env file: ", err)
-	}
+	_ := godotenv.Load()
+	
 
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
